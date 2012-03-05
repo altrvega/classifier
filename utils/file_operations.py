@@ -22,9 +22,6 @@ class FileOperations(object):
         file_list = os.listdir(dir)
         return file_list
         
-
-    
-    
     @staticmethod
     def get_word_list():
         """get word list from file
@@ -34,6 +31,25 @@ class FileOperations(object):
         word_list = f.readlines()
         f.close()
         return word_list
+
+    @staticmethod
+    def get_synset_list(word):
+        """
+        """
+        file_path = properties['synsets_dir'] + word + '.txt'
+        f = io.open(file_path, 'r')
+        synset_list = f.readlines()
+        f.close()
+        return synset_list
+
+    @staticmethod
+    def read_rooted_words(word):
+        file_path = properties['roots_dir'] + word + '.txt'
+        f = io.open(file_path, 'r')
+        line_list = f.readlines()
+        f.close()
+        return line_list
+
 
     @staticmethod
     def write_list_to_file(list_obj, word):
