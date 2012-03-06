@@ -36,6 +36,7 @@ class FileOperations(object):
     def get_synset_list(word):
         """
         """
+        word = word.strip()
         file_path = properties['synsets_dir'] + word + '.txt'
         f = io.open(file_path, 'r')
         synset_list = f.readlines()
@@ -44,6 +45,7 @@ class FileOperations(object):
 
     @staticmethod
     def read_rooted_words(word):
+        word = word.strip()
         file_path = properties['roots_dir'] + word + '.txt'
         f = io.open(file_path, 'r')
         line_list = f.readlines()
