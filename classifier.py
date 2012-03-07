@@ -16,13 +16,14 @@ class Classifier(object):
         """
         word_list = FileOperations.get_word_list()
         for word in word_list:
+            word = word.strip()
             synset_list = FileOperations.get_synset_list(word)
             synset_list = self.convert_synset_dict(synset_list)
             rooted_list = FileOperations.read_rooted_words(word)
             page_list = self.line_list_to_page_object(rooted_list)
             for page in page_list:
-                page_class = self.classify(page, synset_list)
-                print page_class
+                page_class = self.classify(word, page, synset_list)
+                print page._link +  '   '  + str(page_class)
 
 
     def convert_synset_dict(self, synset_list):
@@ -35,8 +36,22 @@ class Classifier(object):
             syn_info = syn_info.split(' ', 1)
             idx = syn_info[0]
             synset = wn.synset(syn_info[1])
-            dict[idx] = synset
+            near_synsets = self.get_near_synsets(synset)
+            dict[idx] = near_synsets
         return dict
+
+    def get_near_synsets(self, synset):
+        """2 based hypernym
+        """
+        all_hypernyms = []
+        hypernyms = synset.hypernyms()
+        for hype in hypernyms:
+            sec_hypernyms = hype.hypernyms()
+            hypernyms = hypernyms + sec_hypernyms
+        hyponyms = synset.hyponyms()
+        holonyms = synset.member_holonyms()
+        all_near_synsets = hypernyms + hyponyms + holonyms
+        return all_near_synsets
 
             
     def line_list_to_page_object(self, line_list):
@@ -53,11 +68,13 @@ class Classifier(object):
             obj_list.append(page)
         return obj_list
 
-    def classify(self, page, synset_list):
+    def classify(self, keyword,  page, synset_list):
         """
         """
         points = self.initialize_points(synset_list)
         for word in page._words:
+            if (word == keyword):
+                continue
             meaning_list = self.get_meanings(word)
             page_word_synsets = []
             for mean in meaning_list:
@@ -65,22 +82,31 @@ class Classifier(object):
                 for synset in temp_list:
                     if (synset not in page_word_synsets):
                         page_word_synsets.append(synset)
+            set_page_word_synsets = set(page_word_synsets)
             page_word_hypernyms = self.get_all_hypernyms(page_word_synsets)
+            set_page_word_hypernyms = set(page_word_hypernyms)
             page_word_hyponyms = self.get_all_hyponyms(page_word_synsets)
+            set_page_word_hyponyms = set(page_word_hyponyms)
             page_word_holonyms = self.get_all_holonyms(page_word_synsets)
+            set_page_word_holonyms = set(page_word_holonyms)
             for syn_idx in synset_list:
-                if (synset_list[syn_idx] in page_word_synsets):
+                sub_synsets = synset_list[syn_idx]
+                set_sub_synsets = set(sub_synsets)
+                if (set_sub_synsets.intersection(set_page_word_synsets)):
                     points[syn_idx] = points[syn_idx] + 1
                     break
-                if (synset_list[syn_idx] in page_word_hypernyms):
+                if (set_sub_synsets.intersection(set_page_word_hypernyms)):
                     points[syn_idx] = points[syn_idx] + 1
                     break
-                if (synset_list[syn_idx] in page_word_hyponyms):
+                if (set_sub_synsets.intersection(set_page_word_hyponyms)):
                     points[syn_idx] = points[syn_idx] + 1
                     break
-                if (synset_list[syn_idx] in page_word_holonyms):
+                if (set_sub_synsets.intersection(set_page_word_holonyms)):
                     points[syn_idx] = points[syn_idx] + 1
                     break
+        #print page._link
+        #print points
+        #print keyword
         return self.get_biggest_value(points)
 
     def get_biggest_value(self, dict):
@@ -121,6 +147,15 @@ class Classifier(object):
             for hype in hypernyms:
                 if (hype not in all_hypernyms):
                     all_hypernyms.append(hype)
+
+        #hypernyms of hypernyms
+        sec_hypernyms = []
+        for synset in all_hypernyms:
+            hypernyms = synset.hypernyms()
+            for hype in hypernyms:
+                if (hype not in sec_hypernyms):
+                    sec_hypernyms.append(hype)
+        all_hypernyms = all_hypernyms + sec_hypernyms
         return all_hypernyms
 
     def get_all_holonyms(self, synset_list):
