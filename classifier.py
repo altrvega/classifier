@@ -11,21 +11,79 @@ class Classifier(object):
     """
     """
     
-    def __init__(self):
+    def __init__(self, similarity_based):
         """
         """
-        word_list = FileOperations.get_word_list()
-        for word in word_list:
-            word = word.strip()
-            synset_list = FileOperations.get_synset_list(word)
-            synset_list = self.convert_synset_dict(synset_list)
-            rooted_list = FileOperations.read_rooted_words(word)
-            page_list = self.line_list_to_page_object(rooted_list)
-            for page in page_list:
-                page_class = self.classify(word, page, synset_list)
-                print page._link +  '   '  + str(page_class)
+        if (similarity_based):
+            word_list = FileOperations.get_word_list()
+            for word in word_list:
+                word = word.strip()
+                synset_list = FileOperations.get_synset_list(word)
+                synset_list = self.synset_list_to_dict(synset_list)
+                rooted_list = FileOperations.read_rooted_words(word)
+                page_list = self.line_list_to_page_object(rooted_list)
+                for page in page_list:
+                    page_class = self.similarity_based_classify(word, page, synset_list)
+                    print page._link +  '   '  + str(page_class)
+                
+        else:
+            word_list = FileOperations.get_word_list()
+            for word in word_list:
+                word = word.strip()
+                synset_list = FileOperations.get_synset_list(word)
+                synset_list = self.convert_synset_dict(synset_list)
+                rooted_list = FileOperations.read_rooted_words(word)
+                page_list = self.line_list_to_page_object(rooted_list)
+                for page in page_list:
+                    page_class = self.classify(word, page, synset_list)
+                    print page._link +  '   '  + str(page_class)
 
 
+    """
+    --------------similarity based methods-------------------
+    """
+    def similarity_based_classify(self, keyword, page, synset_list):
+        points = self.initialize_points(synset_list)
+        for word in page._words:
+            if (word == keyword):
+                continue
+            meaning_list = self.get_meanings(word)
+            page_word_synsets = []
+            for mean in meaning_list:
+                temp_list = WordnetProcess.getSynsets(mean, pos='NOUN', limit=3)
+                for synset in temp_list:
+                    if (synset not in page_word_synsets):
+                        page_word_synsets.append(synset)
+            for syn_idx in synset_list:
+                points[syn_idx] = points[syn_idx] + self.get_biggest_similarity(synset_list[syn_idx], page_word_synsets)
+        print points
+        return self.get_biggest_value(points)
+            
+            
+            
+    def get_biggest_similarity(self, syn1, synset_list):
+        biggest_value = 0
+        for syn2 in synset_list:
+            if (syn1.path_similarity(syn2) > biggest_value):
+                biggest_value = syn1.path_similarity(syn2)
+        return biggest_value
+            
+    
+    def synset_list_to_dict(self, synset_list):
+        dict = {}
+        for syn_line in synset_list:
+            syn_info = syn_line.split(':', 1)
+            syn_info = syn_info[0]
+            syn_info = syn_info.split(' ', 1)
+            idx = syn_info[0]
+            synset = wn.synset(syn_info[1])
+            dict[idx] = synset
+        return dict
+
+    
+    """
+    --------------non similarity based methods-------------------
+    """
     def convert_synset_dict(self, synset_list):
         """
         """
@@ -45,6 +103,8 @@ class Classifier(object):
         """
         all_hypernyms = []
         hypernyms = synset.hypernyms()
+        if (not hypernyms):
+            hypernyms = synset.instance_hypernyms()
         for hype in hypernyms:
             sec_hypernyms = hype.hypernyms()
             hypernyms = hypernyms + sec_hypernyms
@@ -105,7 +165,7 @@ class Classifier(object):
                     points[syn_idx] = points[syn_idx] + 1
                     break
         #print page._link
-        #print points
+        print points
         #print keyword
         return self.get_biggest_value(points)
 
@@ -144,6 +204,8 @@ class Classifier(object):
         all_hypernyms = []
         for synset in synset_list:
             hypernyms = synset.hypernyms()
+            if (not hypernyms):
+                hypernyms = synset.instance_hypernyms()
             for hype in hypernyms:
                 if (hype not in all_hypernyms):
                     all_hypernyms.append(hype)
@@ -177,7 +239,8 @@ class Classifier(object):
 
 
 if __name__ == '__main__':
-    classifier = Classifier()
+    classifier = Classifier(True)
+    #classifier = Classifier(False)
         
         
 
